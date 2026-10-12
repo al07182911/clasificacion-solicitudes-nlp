@@ -1,0 +1,30 @@
+
+# =====================================================
+# Proyecto: Clasificacion de solicitudes mediante NLP
+# Entorno: Google Colab - NVIDIA Tesla T4
+# Python: 3.13.15
+# =====================================================
+
+# Hugging Face y modelos preentrenados
+transformers==5.18.0
+accelerate==1.15.0
+huggingface_hub==1.33.0
+sentencepiece==0.2.2
+
+# Procesamiento y evaluacion de datos
+scikit-learn==1.6.1
+pandas==2.2.3
+numpy==2.1.3
+
+# Visualizacion de resultados
+matplotlib==3.10.0
+
+# PyTorch con aceleracion GPU
+# Version de referencia: torch==2.11.0+cu130
+# Utilizar la instalacion de PyTorch con CUDA
+# incluida en el entorno de Google Colab.
+
+# Autenticacion Hugging Face Hub
+# Configurar el secreto HF_TOKEN en Google Colab
+# con permisos de lectura (Read).
+# No publicar el valor del token en GitHub.
