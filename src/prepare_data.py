@@ -2,56 +2,123 @@
 # ==========================================================
 # PROYECTO: CLASIFICACION DE SOLICITUDES MEDIANTE NLP
 # SCRIPT: prepare_data.py
-# DESCRIPCION: Limpieza y division del dataset Bitext
+#
+# Descarga automatica del dataset Bitext desde Kaggle
+# Limpieza, validacion y division estratificada 70/30
 # ==========================================================
 
+import argparse
+import shutil
+from pathlib import Path
+
+import kagglehub
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
+DATASET_KAGGLE = (
+    "bitext/training-dataset-for-chatbotsvirtual-assistants"
+)
+
+COLUMNAS = ["flags", "utterance", "category", "intent"]
+
+
+def descargar_dataset(destino):
+    """
+    Descarga el dataset Bitext desde Kaggle y copia
+    sus archivos al directorio indicado.
+    """
+
+    destino = Path(destino)
+    destino.mkdir(parents=True, exist_ok=True)
+
+    print("=" * 55)
+    print("DESCARGA AUTOMATICA DEL DATASET")
+    print("=" * 55)
+
+    ruta_descarga = Path(
+        kagglehub.dataset_download(DATASET_KAGGLE)
+    )
+
+    print("Origen:", ruta_descarga)
+
+    # Copiar archivos desde la cache de Kaggle
+    shutil.copytree(
+        ruta_descarga,
+        destino,
+        dirs_exist_ok=True
+    )
+
+    print("Destino:", destino)
+
+    return destino
+
+
+def localizar_dataset(carpeta):
+    """
+    Localiza el CSV correspondiente al dataset
+    de 20,000+ expresiones de chatbots.
+    """
+
+    carpeta = Path(carpeta)
+
+    candidatos = []
+
+    for archivo in carpeta.rglob("*.csv"):
+
+        try:
+            df_temp = pd.read_csv(archivo)
+
+            if (
+                set(COLUMNAS).issubset(df_temp.columns)
+                and len(df_temp) == 21534
+            ):
+                candidatos.append(archivo)
+
+        except Exception:
+            continue
+
+    if len(candidatos) != 1:
+        raise ValueError(
+            "No se pudo identificar un unico dataset "
+            "Bitext de 21,534 registros. "
+            "Verifica la version descargada."
+        )
+
+    print("\nDataset identificado:")
+    print(candidatos[0])
+
+    return candidatos[0]
+
+
 def preparar_datos(ruta_csv, test_size=0.30, semilla=42):
     """
-    Carga y prepara el dataset Bitext.
-
-    Parametros:
-        ruta_csv: Ruta del archivo CSV original.
-        test_size: Proporcion del conjunto de prueba.
-        semilla: Semilla para reproducibilidad.
-
-    Retorna:
-        df_train: Conjunto de desarrollo.
-        df_test: Conjunto de prueba.
+    Carga, limpia y divide el dataset Bitext.
     """
 
-    # 1. Cargar dataset
+    # Cargar datos
     df = pd.read_csv(ruta_csv)
 
-    print("Registros originales:", len(df))
+    print("\nREGISTROS ORIGINALES:", len(df))
 
-    # 2. Validar columnas
-    columnas = [
-        "flags",
-        "utterance",
-        "category",
-        "intent"
-    ]
+    # Validar columnas
+    faltantes = set(COLUMNAS) - set(df.columns)
 
-    for columna in columnas:
-        if columna not in df.columns:
-            raise ValueError(
-                f"Falta la columna: {columna}"
-            )
+    if faltantes:
+        raise ValueError(
+            f"Columnas faltantes: {faltantes}"
+        )
 
-    # 3. Validar valores nulos
-    if df[columnas].isnull().any().any():
+    # Validar nulos
+    if df[COLUMNAS].isnull().any().any():
         raise ValueError(
             "El dataset contiene valores nulos."
         )
 
-    # 4. Eliminar duplicados completos
+    # Eliminar duplicados completos
     df_limpio = df.drop_duplicates().copy()
 
-    # 5. Comprobar etiquetas contradictorias
+    # Verificar textos con intenciones contradictorias
     conflictos = (
         df_limpio.groupby("utterance")["intent"]
         .nunique()
@@ -62,14 +129,14 @@ def preparar_datos(ruta_csv, test_size=0.30, semilla=42):
             "Existen textos con intenciones diferentes."
         )
 
-    # 6. Eliminar textos repetidos
+    # Eliminar textos repetidos
     df_modelo = (
         df_limpio
         .drop_duplicates(subset=["utterance"])
         .reset_index(drop=True)
     )
 
-    # 7. Division estratificada
+    # Division estratificada 70/30
     df_train, df_test = train_test_split(
         df_modelo,
         test_size=test_size,
@@ -80,7 +147,7 @@ def preparar_datos(ruta_csv, test_size=0.30, semilla=42):
     df_train = df_train.reset_index(drop=True)
     df_test = df_test.reset_index(drop=True)
 
-    # 8. Validar ausencia de textos compartidos
+    # Validar que no existan textos compartidos
     comunes = (
         set(df_train["utterance"])
         & set(df_test["utterance"])
@@ -88,11 +155,11 @@ def preparar_datos(ruta_csv, test_size=0.30, semilla=42):
 
     assert len(comunes) == 0
 
-    # 9. Mostrar resumen
-    print("\nPREPARACION COMPLETADA")
-    print("-" * 45)
+    print("\nRESULTADOS DE PREPARACION")
+    print("-" * 55)
+
     print("Registros limpios:", len(df_modelo))
-    print("Desarrollo:", len(df_train))
+    print("Entrenamiento:", len(df_train))
     print("Prueba:", len(df_test))
     print("Intenciones:", df_modelo["intent"].nunique())
     print("Textos compartidos:", len(comunes))
@@ -100,36 +167,55 @@ def preparar_datos(ruta_csv, test_size=0.30, semilla=42):
     return df_train, df_test
 
 
-if __name__ == "__main__":
-    import argparse
+def main():
 
     parser = argparse.ArgumentParser(
-        description="Preparacion del dataset Bitext"
-    )
-
-    parser.add_argument(
-        "--input",
-        required=True,
-        help="Ruta del archivo CSV original"
+        description="Preparacion automatica del dataset Bitext"
     )
 
     parser.add_argument(
         "--output",
-        default="data",
-        help="Directorio para guardar los resultados"
+        default="/content/Actividad4JCP",
+        help="Directorio de salida"
     )
 
     args = parser.parse_args()
 
-    from pathlib import Path
+    destino = Path(args.output)
 
-    salida = Path(args.output)
-    salida.mkdir(parents=True, exist_ok=True)
+    # 1. Descargar dataset
+    carpeta = descargar_dataset(destino / "original")
 
-    train, test = preparar_datos(args.input)
+    # 2. Localizar CSV
+    ruta_csv = localizar_dataset(carpeta)
 
-    train.to_csv(salida / "train.csv", index=False)
-    test.to_csv(salida / "test.csv", index=False)
+    # 3. Limpiar y dividir
+    df_train, df_test = preparar_datos(ruta_csv)
 
-    print("\nArchivos generados correctamente.")
+    # 4. Guardar conjuntos preparados
+    carpeta_procesados = destino / "processed"
 
+    carpeta_procesados.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    df_train.to_csv(
+        carpeta_procesados / "train.csv",
+        index=False
+    )
+
+    df_test.to_csv(
+        carpeta_procesados / "test.csv",
+        index=False
+    )
+
+    print("\nARCHIVOS GENERADOS")
+    print(carpeta_procesados / "train.csv")
+    print(carpeta_procesados / "test.csv")
+
+    print("\nProceso completado correctamente.")
+
+
+if __name__ == "__main__":
+    main()
