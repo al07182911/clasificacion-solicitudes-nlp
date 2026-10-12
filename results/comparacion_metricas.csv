@@ -1,0 +1,4 @@
+Modelo,Accuracy,Precision_macro,Recall_macro,F1_macro,Latencia_media_s,Latencia_mediana_s,Muestra,Tipo_evaluacion
+DeBERTa-v3-small,0.67,0.5676,0.5856,0.5199,0.4062,0.3743,100,Piloto
+DeBERTa-v3-base,0.71,0.6104,0.6093,0.5743,0.7379,0.7034,100,Piloto
+BART-large-MNLI,0.8,0.7629,0.7377,0.7144,0.6104,0.569,100,Piloto
